@@ -11,41 +11,21 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['id', 'body', 'article', 'author', 'created_at', 'updated_at']
+        # use read_only_fields to: get field article', 'author' when get, but not required when post
+        read_only_fields = ['article', 'author']
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['name']
-
-class ArticleListSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
-    tag = serializers.SlugRelatedField(
-        read_only=True,
-        slug_field='name'
-    )
-    class Meta:
-        model = Article
-        fields = ['id', 'slug', 'title', 'description',
-                'body', 'tag', 'author',
-                'created_at', 'updated_at']
-
 class ArticleSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    tag = serializers.SlugRelatedField(
-        read_only=True,
-        slug_field='name'
-    )
+    tag = serializers.StringRelatedField(many=True, read_only=True)
+
     class Meta:
         model = Article
         fields = ['id', 'slug', 'title', 'description',
                 'body', 'tag', 'author',
-                'created_at', 'updated_at']
-
-class ArticleCommentSerializer(serializers.ModelSerializer):
-    comments = CommentSerializer(many=True, read_only=True)
-    class Meta:
-        model = Article
-        fields = ['id', 'slug', 'title', 'comments',
                 'created_at', 'updated_at']
 
 class FavoriteSerializer(serializers.ModelSerializer):
