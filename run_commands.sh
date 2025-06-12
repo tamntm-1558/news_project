@@ -2,6 +2,12 @@ if [ "$1" = "migrate" ]; then
     python3 manage.py migrate
 elif [ "$1" = "migration" ]; then
     python3 manage.py makemigrations
+elif [ "$1" = "createapp" ]; then
+    if [ -z "$2" ]; then
+        echo "Please provide an app name."
+        exit 1
+    fi
+    python3 manage.py startapp "$2"
 elif [ "$1" = "run" ]; then
     python3 manage.py runserver
 elif [ "$1" = "show_urls" ]; then
