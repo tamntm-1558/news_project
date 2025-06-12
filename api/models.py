@@ -14,7 +14,7 @@ class Article(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     body = models.TextField()
-    tag = models.ForeignKey('Tag', on_delete=models.CASCADE, related_name='articles', null=True, blank=True)
+    tag = models.ManyToManyField('Tag', related_name='articles', blank=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='articles')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -22,13 +22,16 @@ class Article(models.Model):
 class Comment(models.Model):
     body = models.TextField()
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='comments')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class Tag(models.Model):
     name = models.CharField(max_length=50, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
 
 class Favorite(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
