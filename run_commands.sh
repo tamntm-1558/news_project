@@ -10,7 +10,7 @@ elif [ "$1" = "createapp" ]; then
     python3 manage.py startapp "$2"
 elif [ "$1" = "run" ]; then
     python3 manage.py runserver
-elif [ "$1" = "show_urls" ]; then
+elif [ "$1" = "url" ]; then
     python3 manage.py show_urls
 elif [ "$1" = "shell" ]; then
     python3 manage.py shell
@@ -21,5 +21,5 @@ elif [ "$1" = "collectstatic" ]; then
 elif [ "$1" = "createsuperuser" ]; then
     python3 manage.py createsuperuser
 else
-    echo "Invalid option. Use 'migrate', 'migration', 'run', 'shell', 'test', 'collectstatic', or 'createsuperuser'."
+    echo "Invalid option. Use 'migrate', 'migration', 'createapp', 'url', 'run', 'shell', 'test', 'collectstatic', or 'createsuperuser'."
 fi

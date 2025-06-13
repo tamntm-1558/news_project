@@ -1,26 +1,22 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
 from .models import User, Article, Comment, Tag, Favorite
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-class UserRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
-    username = serializers.CharField(
-        required=True,
-        validators=[UniqueValidator(queryset=User.objects.all())]
-    )
-    email = serializers.EmailField(
-        required=True,
-        validators=[UniqueValidator(queryset=User.objects.all())]
-    )
+# Login Custom serializer for JWT token generation
+class CustomLoginSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
 
-    class Meta:
-        model = User
-        fields = ['username', 'email', 'password', 'token', 'bio', 'image']
+        # Add extra data to the response (optional)
+        data['username'] = self.user.username
+        data['email'] = self.user.email
+        data['bio'] = self.user.bio
+        data['token'] = self.user.token
 
-    def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        return user
+        return data
 
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -41,6 +37,25 @@ class UserLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError('Must include email and password.')
 
         return attrs
+
+class UserRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    username = serializers.CharField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all())]
+    )
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all())]
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password', 'token', 'bio', 'image']
+
+    def create(self, validated_data):
+        user = User.objects.create_user(**validated_data)
+        return user
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -80,8 +95,3 @@ class ArticleSerializer(serializers.ModelSerializer):
             'description': {'required': False},
             'body': {'required': False}
         }
-
-class FavoriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Favorite
-        fields = ['user', 'article', 'created_at']
