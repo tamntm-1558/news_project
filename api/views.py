@@ -1,8 +1,9 @@
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import PermissionDenied
-from django.db.models import Subquery
-from rest_framework import generics, viewsets, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics, viewsets, status, filters
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
@@ -18,7 +19,8 @@ from .serializers import (
     TagSerializer,
     CommentSerializer
 )
-from .models import User, Article, Comment, Tag, Favorite
+from .models import User, Article, Comment, Tag, Favorite, Follow
+from .permissions import IsOwnerOrReadOnly
 
 ## LoginView use TokenObtainPairView of rest_framework_simplejwt
 # class LoginView(TokenObtainPairView):
@@ -77,7 +79,7 @@ class UserRetrieveUpdateView(generics.RetrieveUpdateAPIView):
         return Response({'user': profile_data})
 
     def update(self, request, *args, **kwargs):
-        user = self.get_object()
+        user = self.request.user
         data = request.data.copy()
         allowed_fields = {'email', 'username', 'password', 'image', 'bio'}
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
@@ -106,7 +108,9 @@ class ArticleViewSet(viewsets.ModelViewSet):
     # use select_related (1-1 or 1-n) and prefetch_related (n-n) avoid N+1 query: to optimize query
     queryset = Article.objects.all().select_related('author').prefetch_related('tag')
     serializer_class = ArticleSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsOwnerOrReadOnly]
+    filter_backends = [filters.OrderingFilter]
+    ordering = ['-created_at']
 
     def get_queryset(self):
         queryset = self.queryset
@@ -116,8 +120,10 @@ class ArticleViewSet(viewsets.ModelViewSet):
         author_username = self.request.query_params.get('author')
         if author_username:
             queryset = queryset.filter(author__username=author_username)
-        print(f"Queryset after filtering: {queryset.query}")
         return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
 # TODO: remove block cmt
 # class ArticleDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -147,6 +153,20 @@ class CommentListCreateView(generics.ListCreateAPIView):
         article = get_object_or_404(Article, id=article_id)
         serializer.save(article=article, author=author)
 
+class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [IsOwnerOrReadOnly]
+    lookup_url_kwarg = 'comment_id'
+
+    def get_queryset(self):
+        article_id = self.kwargs.get('article_id')
+        return Comment.objects.filter(article=article_id).select_related('author')
+
+    def perform_update(self, serializer):
+        serializer.save(author=self.request.user)
+
+    def perform_destroy(self, instance):
+        instance.delete()
 
 class TagListView(generics.ListCreateAPIView):
     queryset = Tag.objects.all()
@@ -155,22 +175,41 @@ class TagListView(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        # Extract the 'name' field from each tag
         tag_names = queryset.values_list('name', flat=True)
         return Response(tag_names)
 
-class FavoriteView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def follow_user(request, username):
+    user_to_follow = get_object_or_404(User, username=username)
+    if request.method == 'POST':
+        if user_to_follow == request.user:
+            return Response({'detail': 'You cannot follow yourself.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    def post(self, request, article_id, *args, **kwargs):
-        article = get_object_or_404(Article, id=article_id)
+        follow, created = Follow.objects.get_or_create(follower=request.user, following=user_to_follow)
+        if created:
+            return Response({'detail': 'User followed successfully.'}, status=status.HTTP_201_CREATED)
+        return Response({'detail': 'You are already following this user.'}, status=status.HTTP_200_OK)
+
+    elif request.method == 'DELETE':
+        follow = Follow.objects.filter(follower=request.user, following=user_to_follow)
+        if follow.exists():
+            follow.delete()
+            return Response({'detail': 'User unfollowed successfully.'}, status=status.HTTP_204_NO_CONTENT)
+        return Response({'detail': 'You are not following this user.'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def favorite_article(request, article_id):
+    article = get_object_or_404(Article, id=article_id)
+
+    if request.method == 'POST':
         favorite, created = Favorite.objects.get_or_create(user=request.user, article=article)
         if created:
             return Response({'detail': 'Article favorited.'}, status=status.HTTP_201_CREATED)
         return Response({'detail': 'Article already favorited.'}, status=status.HTTP_200_OK)
 
-    def delete(self, request, article_id, *args, **kwargs):
-        article = get_object_or_404(Article, id=article_id)
+    elif request.method == 'DELETE':
         favorite = Favorite.objects.filter(user=request.user, article=article)
         if favorite.exists():
             favorite.delete()
@@ -181,13 +220,11 @@ class FeedView(generics.ListAPIView):
     serializer_class = ArticleSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = LimitOffsetPagination
+    filter_backends = [filters.OrderingFilter, filters.SearchFilter, DjangoFilterBackend]
+    filterset_fields = ['tag__name']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         user = self.request.user
-        if not user.is_authenticated:
-            raise PermissionDenied("You must be logged in to view your feed.")
-
-        articles = Article.objects.filter(
-            favorites__user=user
-        ).order_by('-favorites__created_at')
-        return articles
+        following_users = user.following.all()
+        return Article.objects.filter(author__in=following_users).select_related('author').prefetch_related('tag')

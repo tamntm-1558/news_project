@@ -88,10 +88,7 @@ class ArticleSerializer(serializers.ModelSerializer):
         fields = ['id', 'slug', 'title', 'description',
                 'body', 'tag', 'author',
                 'created_at', 'updated_at']
-        read_only_fields = ['article', 'author']
+        read_only_fields = ['author']
         extra_kwargs = {
-            'slug': {'required': False},
-            'title': {'required': False},
             'description': {'required': False},
-            'body': {'required': False}
         }

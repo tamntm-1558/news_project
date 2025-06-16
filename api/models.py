@@ -6,8 +6,14 @@ class User(AbstractUser):
     token = models.CharField(max_length=255, blank=True, null=True)
     username = models.CharField(max_length=150, unique=True)
     bio = models.TextField(blank=True, null=True)
-    image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
-    following = models.BooleanField(default=False)
+    image = models.CharField(max_length=255, blank=True, null=True)
+    following = models.ManyToManyField(
+        'self',
+        through='Follow',
+        related_name='followers',
+        symmetrical=False,
+        blank=True
+    )
 
 class Article(models.Model):
     slug = models.SlugField(max_length=255)
@@ -40,3 +46,11 @@ class Favorite(models.Model):
 
     class Meta:
         unique_together = ('user', 'article')  # Ensure a user can favorite an article only once
+
+class Follow(models.Model):
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following_relations')
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='follower_relations')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('follower', 'following')  # Ensure a user can follow another user only once
