@@ -158,6 +158,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json'
 }
 
 AUTHENTICATION_BACKENDS = [
