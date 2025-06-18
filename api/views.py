@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import PermissionDenied
+from django.core.cache import cache
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, viewsets, status, filters
 from rest_framework.decorators import api_view, permission_classes
@@ -174,9 +175,20 @@ class TagListView(generics.ListCreateAPIView):
     permission_classes = [AllowAny]
 
     def list(self, request, *args, **kwargs):
+        cache_key = 'tag_list'
+        cached_tags = cache.get(cache_key)
+        if cached_tags:
+            return Response({'tags': cached_tags}, status=status.HTTP_200_OK)
+
         queryset = self.get_queryset()
         tag_names = queryset.values_list('name', flat=True)
-        return Response(tag_names)
+        cache.set(cache_key, tag_names, 60 * 15)
+        return Response({
+            'tags': tag_names
+        }, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        return super().perform_create(serializer)
 
 @api_view(['POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
