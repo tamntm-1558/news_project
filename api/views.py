@@ -130,6 +130,13 @@ class ArticleViewSet(viewsets.ModelViewSet):
     #         queryset = queryset.filter(favorites__user__username=favorited).distinct()
     #     return queryset
 
+    def retrieve(self, request, *args, **kwargs):
+        article = self.get_object()
+        article.views_count += 1
+        article.save(update_fields=['views_count'])
+        serializer = self.get_serializer(article)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 

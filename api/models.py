@@ -24,6 +24,7 @@ class Article(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='articles')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    views_count = models.PositiveIntegerField(default=0)
 
 class Comment(models.Model):
     body = models.TextField()
