@@ -24,10 +24,10 @@ urlpatterns = [
     path('user/', UserRetrieveUpdateView.as_view(), name='user-detail-update'),
     path('tags/', TagListView.as_view(), name='tag-list'),
     path('articles/<int:article_id>/comments/', CommentListCreateView.as_view(), name='comments-list-create'),
-    path('articles/<int:article_id>/comments/<int:comment_id>', CommentDetailView.as_view(), name='comments-detail'),
+    path('articles/<int:article_id>/comments/<int:comment_id>/', CommentDetailView.as_view(), name='comments-detail'),
     path('articles/<int:article_id>/favorite/', favorite_article, name='favorite-article'),
-    path('articles/feed/', cache_page(60 * 15)(FeedView.as_view()), name='feed-articles'),
+    path('articles/feed/', cache_page(60)(FeedView.as_view()), name='feed-articles'),
     path('profile/<str:username>/', ProfileView.as_view(), name='profile'),
-    path('profile/<str:username>/follow', follow_user, name='profile-follow'),
+    path('profile/<str:username>/follow/', follow_user, name='profile-follow'),
     path('', include(router.urls)),
 ]

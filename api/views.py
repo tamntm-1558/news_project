@@ -233,7 +233,7 @@ class FeedView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = LimitOffsetPagination
     filter_backends = [filters.OrderingFilter, filters.SearchFilter, DjangoFilterBackend]
-    filterset_fields = ['tag__name']
+    filterset_fields = ['author__username']
     ordering = ['-created_at']
 
     def get_queryset(self):
