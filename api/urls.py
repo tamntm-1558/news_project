@@ -12,7 +12,8 @@ from .views import (
     TagListView,
     favorite_article,
     FeedView,
-    follow_user
+    follow_user,
+    ArticleHistoryView
 )
 
 router = DefaultRouter()
@@ -27,6 +28,7 @@ urlpatterns = [
     path('articles/<int:article_id>/comments/<int:comment_id>/', CommentDetailView.as_view(), name='comments-detail'),
     path('articles/<int:article_id>/favorite/', favorite_article, name='favorite-article'),
     path('articles/feed/', cache_page(60)(FeedView.as_view()), name='feed-articles'),
+    path('articles/<int:article_id>/history/', ArticleHistoryView.as_view(), name='article-history'),
     path('profile/<str:username>/', ProfileView.as_view(), name='profile'),
     path('profile/<str:username>/follow/', follow_user, name='profile-follow'),
     path('', include(router.urls)),

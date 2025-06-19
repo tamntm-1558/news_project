@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from .models import User, Article, Comment, Tag, Favorite
+from .models import User, Article, Comment, Tag, ArticleHistory
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Login Custom serializer for JWT token generation
@@ -84,10 +84,11 @@ class ArticleSerializer(serializers.ModelSerializer):
     tagList = serializers.SerializerMethodField()
     favorited = serializers.SerializerMethodField()
     favoriteCount = serializers.SerializerMethodField()
+    tag_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True, required=False)
 
     class Meta:
         model = Article
-        fields = ['id', 'slug', 'title', 'description',
+        fields = ['id', 'slug', 'title', 'description', 'tag_ids',
                 'body', 'tagList', 'favorited', 'favoriteCount', 'author',
                 'views_count', 'created_at', 'updated_at']
         read_only_fields = ['author', 'views_count']
@@ -103,3 +104,34 @@ class ArticleSerializer(serializers.ModelSerializer):
 
     def get_favorited(self, obj):
         return self.get_favoriteCount(obj) > 0
+
+
+    def create(self, validated_data):
+        tag_ids = validated_data.pop('tag_ids', [])
+        tags = Tag.objects.filter(id__in=tag_ids)
+        if tags.count() != len(tag_ids):
+            raise serializers.ValidationError("Some tag_ids are invalid.")
+        article = Article.objects.create(**validated_data)
+        article.tag.set(tags)
+        return article
+
+    def update(self, instance, validated_data):
+        tag_ids = validated_data.pop('tag_ids', [])
+        tags = Tag.objects.filter(id__in=tag_ids)
+        if tags.count() != len(tag_ids):
+            raise serializers.ValidationError("Some tag_ids are invalid.")
+
+        instance.slug = validated_data.get('slug', instance.slug)
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get('description', instance.description)
+        instance.body = validated_data.get('body', instance.body)
+        instance.save()
+
+        instance.tag.set(tags)
+        return instance
+
+class ArticleHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ArticleHistory
+        fields = ['id', 'slug', 'title', 'description', 'body', 'updated_at']
+        read_only_fields = ['id', 'updated_at']

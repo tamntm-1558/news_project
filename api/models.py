@@ -55,3 +55,14 @@ class Follow(models.Model):
 
     class Meta:
         unique_together = ('follower', 'following')  # Ensure a user can follow another user only once
+
+class ArticleHistory(models.Model):
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='history')
+    slug = models.SlugField(max_length=255)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    body = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"History of {self.article.title} at {self.updated_at}"
