@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from .models import User, Article, Comment, Tag, Favorite
+from .models import User, Article, Comment, Tag, ArticleHistory
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Login Custom serializer for JWT token generation
@@ -103,3 +103,9 @@ class ArticleSerializer(serializers.ModelSerializer):
 
     def get_favorited(self, obj):
         return self.get_favoriteCount(obj) > 0
+
+class ArticleHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ArticleHistory
+        fields = ['id', 'slug', 'title', 'description', 'body', 'updated_at']
+        read_only_fields = ['id', 'updated_at']

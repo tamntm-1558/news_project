@@ -20,9 +20,10 @@ from .serializers import (
     UserProfileSerializer,
     ArticleSerializer,
     TagSerializer,
-    CommentSerializer
+    CommentSerializer,
+    ArticleHistorySerializer
 )
-from .models import User, Article, Comment, Tag, Favorite, Follow
+from .models import User, Article, Comment, Tag, Favorite, Follow, ArticleHistory
 from .permissions import IsOwnerOrReadOnly
 
 ## LoginView use TokenObtainPairView of rest_framework_simplejwt
@@ -139,6 +140,27 @@ class ArticleViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def perform_update(self, serializer):
+        ArticleHistory.objects.create(
+            article=self.get_object(),
+            slug=self.get_object().slug,
+            title=self.get_object().title,
+            description=self.get_object().description,
+            body=self.get_object().body
+        )
+        serializer.save(author=self.request.user)
+
+class ArticleHistoryView(generics.ListAPIView):
+    serializer_class = ArticleHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        article_id = self.kwargs.get('article_id')
+        article = get_object_or_404(Article, id=article_id)
+        if article.author != self.request.user:
+            raise PermissionDenied("Only the author can view the article history.")
+        return ArticleHistory.objects.filter(article=article)
 
 class CommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
