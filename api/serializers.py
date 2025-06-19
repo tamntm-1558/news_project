@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from .models import User, Article, Comment, Tag, Favorite
+from .models import User, Article, Comment, Tag, ArticleHistory
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Login Custom serializer for JWT token generation
@@ -81,14 +81,31 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ['name']
 class ArticleSerializer(serializers.ModelSerializer):
     author = UserProfileSerializer(read_only=True)
-    tag = serializers.StringRelatedField(many=True, read_only=True)
+    tagList = serializers.SerializerMethodField()
+    favorited = serializers.SerializerMethodField()
+    favoriteCount = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
         fields = ['id', 'slug', 'title', 'description',
-                'body', 'tag', 'author',
-                'created_at', 'updated_at']
-        read_only_fields = ['author']
+                'body', 'tagList', 'favorited', 'favoriteCount', 'author',
+                'views_count', 'created_at', 'updated_at']
+        read_only_fields = ['author', 'views_count']
         extra_kwargs = {
             'description': {'required': False},
         }
+
+    def get_tagList(self, obj):
+        return [tag.name for tag in obj.tag.all()]
+
+    def get_favoriteCount(self, obj):
+        return obj.favorites.count()
+
+    def get_favorited(self, obj):
+        return self.get_favoriteCount(obj) > 0
+
+class ArticleHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ArticleHistory
+        fields = ['id', 'slug', 'title', 'description', 'body', 'updated_at']
+        read_only_fields = ['id', 'updated_at']

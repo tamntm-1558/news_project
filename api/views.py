@@ -10,6 +10,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework_simplejwt.views import TokenObtainPairView
+
+from api.filters import ArticleFilter
 from .serializers import (
     CustomLoginSerializer,
     UserRegisterSerializer,
@@ -18,9 +20,10 @@ from .serializers import (
     UserProfileSerializer,
     ArticleSerializer,
     TagSerializer,
-    CommentSerializer
+    CommentSerializer,
+    ArticleHistorySerializer
 )
-from .models import User, Article, Comment, Tag, Favorite, Follow
+from .models import User, Article, Comment, Tag, Favorite, Follow, ArticleHistory
 from .permissions import IsOwnerOrReadOnly
 
 ## LoginView use TokenObtainPairView of rest_framework_simplejwt
@@ -110,33 +113,54 @@ class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all().select_related('author').prefetch_related('tag')
     serializer_class = ArticleSerializer
     permission_classes = [IsOwnerOrReadOnly]
-    filter_backends = [filters.OrderingFilter]
+    filter_backends = [filters.OrderingFilter, DjangoFilterBackend]
     ordering = ['-created_at']
+    filterset_class = ArticleFilter
 
-    def get_queryset(self):
-        queryset = self.queryset
-        tag_name = self.request.query_params.get('tag')
-        if tag_name:
-            queryset = queryset.filter(tag__name=tag_name)
-        author_username = self.request.query_params.get('author')
-        if author_username:
-            queryset = queryset.filter(author__username=author_username)
-        return queryset
+    # TODO: filter data by custom query parameters
+    # def get_queryset(self):
+    #     queryset = self.queryset
+    #     tag_name = self.request.query_params.get('tag')
+    #     if tag_name:
+    #         queryset = queryset.filter(tag__name=tag_name)
+    #     author_username = self.request.query_params.get('author')
+    #     if author_username:
+    #         queryset = queryset.filter(author__username=author_username)
+    #     favorited = self.request.query_params.get('favorited')
+    #     if favorited:
+    #         queryset = queryset.filter(favorites__user__username=favorited).distinct()
+    #     return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        article = self.get_object()
+        article.views_count += 1
+        article.save(update_fields=['views_count'])
+        serializer = self.get_serializer(article)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-# TODO: remove block cmt
-# class ArticleDetailView(generics.RetrieveUpdateDestroyAPIView):
-#     queryset = Article.objects.select_related('author', 'tag')
-#     serializer_class = ArticleSerializer
+    def perform_update(self, serializer):
+        ArticleHistory.objects.create(
+            article=self.get_object(),
+            slug=self.get_object().slug,
+            title=self.get_object().title,
+            description=self.get_object().description,
+            body=self.get_object().body
+        )
+        serializer.save(author=self.request.user)
 
-    # permission_classes = [IsAuthenticated]
+class ArticleHistoryView(generics.ListAPIView):
+    serializer_class = ArticleHistorySerializer
+    permission_classes = [IsAuthenticated]
 
-    # def perform_update(self, serializer):
-    #     serializer.save(author=self.request.user)
-    # def perform_destroy(self, instance):
-    #     instance.delete()
+    def get_queryset(self):
+        article_id = self.kwargs.get('article_id')
+        article = get_object_or_404(Article, id=article_id)
+        if article.author != self.request.user:
+            raise PermissionDenied("Only the author can view the article history.")
+        return ArticleHistory.objects.filter(article=article)
 
 class CommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
@@ -231,10 +255,9 @@ def favorite_article(request, article_id):
 class FeedView(generics.ListAPIView):
     serializer_class = ArticleSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = LimitOffsetPagination
     filter_backends = [filters.OrderingFilter, filters.SearchFilter, DjangoFilterBackend]
-    filterset_fields = ['tag__name']
     ordering = ['-created_at']
+    filterset_class = ArticleFilter
 
     def get_queryset(self):
         user = self.request.user
